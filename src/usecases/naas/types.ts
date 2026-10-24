@@ -21,6 +21,29 @@ export interface ChatRequest {
   language?: string;
 }
 
+// Past chats — mirrors the agent backend's src/models/chat_history.py
+// (GET /chats, GET /chats/{session_id}). A message carries the same fields
+// NaasChatPanel keeps per bubble, so a reopened chat renders like a live
+// one, Info Canvas included.
+export interface ChatSummary {
+  session_id: string;
+  agent_id: string | null;
+  title: string;
+  // When the session last ended; null while the chat is still open.
+  updated_at: string | null;
+}
+
+export interface ChatHistoryMessage {
+  role: 'user' | 'assistant';
+  text: string;
+  agent: string | null;
+  tool_results: Record<string, unknown>;
+}
+
+export interface ChatDetail extends ChatSummary {
+  messages: ChatHistoryMessage[];
+}
+
 // POST /chat now streams Server-Sent Events instead of returning one JSON
 // body — see shared/api/naas.ts's postChatStream for the event shapes
 // ("text_delta" | "tool_result" | "done" | "error") consumed there.
@@ -42,7 +65,17 @@ export interface ServiceOrderTicket {
   rental_charge: string | null;
   status: 'pending' | 'approved';
   approved_at: string | null;
-  product_type: 'ethernet_port' | 'offnet_port' | 'offnet_modification';
+  product_type:
+    | 'ethernet_port'
+    | 'offnet_port'
+    | 'comcast_port'
+    | 'offnet_modification'
+    | 'ethernet_connection';
+  // Ethernet Connection only (Flow E) -- a Connection order has two
+  // distinct addresses, unlike every other product_type's single
+  // city/country/post_code. Absent/null for every other product_type.
+  source_address?: string | null;
+  destination_address?: string | null;
 }
 
 // Mirrors agent_backend.reliability_db's 3 tables, as returned by

@@ -600,6 +600,218 @@
   opacity: 0.65;
 }
 
+/* History button — same height as the language pill beside it. */
+.navbar-history {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border: 1px solid var(--border-default);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.navbar-history:hover,
+.navbar-history.is-open {
+  background: var(--bg-elevated);
+  border-color: var(--colt-teal);
+  color: var(--colt-teal);
+}
+
+/* No chats yet: greyed out, with a tooltip saying so (NaasNavbar.tsx). */
+.navbar-history.is-disabled,
+.navbar-history.is-disabled:hover {
+  background: transparent;
+  border-color: var(--border-default);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+/* ══════════════════════ Chat history panel ══════════════════════ */
+
+/* First grid column of .agent-screen-body when open (NaasChatScreen.tsx);
+   the Info Canvas keeps its place on the right. */
+.chat-history {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-base);
+  border-right: 1px solid var(--border-default);
+}
+
+.chat-history-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 0.5rem 0.85rem 0.9rem;
+  border-bottom: 1px solid var(--border-default);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.chat-history-close {
+  display: inline-flex;
+  padding: 0.25rem;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.chat-history-close:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.chat-history-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.35rem;
+}
+
+.chat-history-empty,
+.chat-history-error {
+  margin: 0.75rem;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.chat-history-error {
+  color: var(--color-error, #d9534f);
+}
+
+.chat-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.chat-history-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  width: 100%;
+  padding: 0.5rem 0.55rem;
+  border: none;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.chat-history-item:hover:not(:disabled) {
+  background: var(--bg-elevated);
+}
+
+.chat-history-item.is-active {
+  background: var(--colt-teal-light);
+  cursor: default;
+}
+
+.chat-history-item:disabled:not(.is-active) {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.chat-history-item-icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--text-secondary);
+}
+
+.chat-history-item-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 2px;
+}
+
+.chat-history-item-title {
+  overflow: hidden;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.chat-history-item-meta {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+}
+
+/* The pencil sits over the item's right edge and only shows on hover or
+   keyboard focus, so the narrow panel isn't cluttered. */
+.chat-history-row {
+  position: relative;
+}
+
+.chat-history-row .chat-history-item {
+  padding-right: 1.6rem;
+}
+
+.chat-history-rename {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.3rem;
+  display: inline-flex;
+  padding: 0.2rem;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+
+.chat-history-row:hover .chat-history-rename,
+.chat-history-rename:focus-visible {
+  opacity: 1;
+}
+
+.chat-history-rename:hover {
+  background: var(--bg-base);
+  color: var(--colt-teal);
+}
+
+.chat-history-rename-input {
+  width: 100%;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid var(--colt-teal);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: 0.82rem;
+  font-weight: 600;
+  outline: none;
+}
+
+.chat-history-retry {
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--colt-teal);
+  font-size: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 /* ══════════════════════ Language select ══════════════════════ */
 
 .language-select {
@@ -2034,6 +2246,13 @@
   font-family: var(--font-mono);
 }
 
+.admin-table td.admin-table__address {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 220px;
+}
+
 .admin-table th {
   color: var(--text-secondary);
   font-weight: 600;
@@ -2069,6 +2288,99 @@
 .admin-approve-btn:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+.admin-table tbody tr.admin-table__row {
+  cursor: pointer;
+}
+
+.admin-table tbody tr.admin-table__row:hover {
+  background: var(--bg-hover, rgba(255, 255, 255, 0.04));
+}
+
+/* Keeps the Approve action reachable without horizontal-scrolling past the
+   wide Address/Name columns -- pins it to the table's right edge, same
+   background as every other cell so scrolled-under content doesn't show
+   through. */
+.admin-table th.admin-table__actions,
+.admin-table td.admin-table__actions {
+  position: sticky;
+  right: 0;
+  background: var(--bg-surface);
+  white-space: nowrap;
+}
+
+.admin-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 100;
+}
+
+.admin-modal {
+  background: var(--bg-surface);
+  border-radius: 16px;
+  box-shadow: var(--shadow-lg);
+  width: 100%;
+  max-width: 560px;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 1.5rem;
+}
+
+.admin-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.admin-modal-header h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--text-primary);
+}
+
+.admin-modal-close {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.25rem;
+}
+
+.admin-modal-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.admin-modal-field dt {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.2rem;
+}
+
+.admin-modal-field dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  word-break: break-word;
+}
+
+.admin-modal-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 /* ══════════════════════ Agent screen shell (split left panel / chat) ══════════════════════ */

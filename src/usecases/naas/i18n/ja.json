@@ -156,13 +156,14 @@
   "admin": {
     "backLink": "NaaSアシスタント",
     "title": "サービスオーダーチケット",
+    "closeDetails": "閉じる",
     "pendingTab": "保留中 ({{count}})",
     "historyTab": "履歴 ({{count}})",
     "table": {
       "ticket": "チケット",
       "type": "種別",
       "address": "住所",
-      "building": "建物",
+      "building": "名前",
       "bandwidth": "帯域幅",
       "commitment": "契約期間",
       "rentalCharge": "レンタル料金",
@@ -176,6 +177,7 @@
     "productTypes": {
       "ethernetPort": "イーサネットポート",
       "offnetPort": "Offnetポート",
+      "comcastPort": "Comcastポート",
       "offnetModification": "Offnetポート変更",
       "ethernetConnection": "イーサネット接続"
     }
@@ -187,6 +189,22 @@
   "infoCanvas": {
     "title": "インフォキャンバス",
     "subtitle": "エージェントの応答に応じて、視覚情報がここに動的に表示されます。"
+  },
+  "history": {
+    "toggle": "チャット履歴",
+    "title": "チャット履歴",
+    "close": "チャット履歴を閉じる",
+    "loading": "読み込み中…",
+    "noHistory": "チャット履歴はまだありません",
+    "empty": "過去のチャットはまだありません。",
+    "loadFailed": "チャット履歴を読み込めませんでした。",
+    "retry": "再試行",
+    "openFailed": "このチャットを開けませんでした。もう一度お試しください。",
+    "notSaved": "未保存",
+    "untitled": "無題のチャット",
+    "rename": "名前を変更",
+    "renameLabel": "チャットのタイトル",
+    "renameFailed": "チャット名を変更できませんでした。もう一度お試しください。"
   },
   "greetings": {
     "serviceOrder": "こんにちは、サービスオーダーエージェントです。ご用件をお聞かせください！"

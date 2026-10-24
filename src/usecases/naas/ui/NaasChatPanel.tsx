@@ -12,7 +12,7 @@ import remarkGfm from 'remark-gfm';
 import { useTranslation } from 'react-i18next';
 import { ArrowRight } from 'lucide-react';
 import { useQuota } from '@aicoe/aihub-platform/quota';
-import { postChatStream } from '../api';
+import { postChatStream, type ChatHistoryMessage } from '../api';
 import { greetings } from './greetings';
 import type { Language } from '../useNaasLanguage';
 
@@ -109,9 +109,10 @@ interface ChatPanelProps {
   // Fired once, the moment the user's first message this session is
   // actually sent (Enter or the Send button — not while they're still
   // typing it) — NaasChatScreen.tsx uses this to switch from the pre-chat
-  // welcome layout to the split left-panel/chat layout. Never fired again
-  // after that first call.
-  onFirstMessageSent?: () => void;
+  // welcome layout to the split left-panel/chat layout, and the message
+  // itself to title the chat in History. Never fired again after that
+  // first call.
+  onFirstMessageSent?: (text: string) => void;
   // 'welcome' visually hides the message transcript and restyles the input
   // row into a centered, rounded search-bar look — used by
   // NaasChatScreen.tsx's pre-chat screen. The SAME NaasChatPanel instance
@@ -127,6 +128,16 @@ interface ChatPanelProps {
   // standalone specialist screens, which have no such heading and rely on
   // this for their opening line.
   autoGreet?: boolean;
+  // A past chat reopened from Navbar's History panel (NaasChatScreen.tsx):
+  // continue it under its own session id, starting from its saved
+  // messages, instead of a fresh session. Read on mount only — the parent
+  // remounts this panel (new `key`) to switch chats.
+  initialSessionId?: string;
+  initialMessages?: ChatHistoryMessage[];
+  // Fired after each turn that completed (not on error) — the backend has
+  // saved it to the chat's history by then. Carries this panel's session
+  // id: a reply can finish after the user has already left the chat.
+  onTurnComplete?: (sessionId: string) => void;
 }
 
 export interface ChatPanelHandle {
@@ -135,6 +146,9 @@ export interface ChatPanelHandle {
   // outside NaasChatPanel's own input and so need a way to trigger a turn
   // from there.
   sendMessage: (text: string) => void;
+  // This panel's session id — NaasChatScreen.tsx closes (archives) it when
+  // the user leaves the chat.
+  getSessionId: () => string;
 }
 
 function makeSessionId(): string {
@@ -160,6 +174,9 @@ const NaasChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function NaasC
     onFirstMessageSent,
     variant = 'default',
     autoGreet = true,
+    initialSessionId,
+    initialMessages,
+    onTurnComplete,
   },
   ref,
 ) {
@@ -176,8 +193,14 @@ const NaasChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function NaasC
     returnObjects: true,
     defaultValue: DEFAULT_PENDING_STATUS_WORDS,
   }) as string[];
-  const [sessionId] = useState(makeSessionId);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [sessionId] = useState(() => initialSessionId ?? makeSessionId());
+  const [messages, setMessages] = useState<ChatMessage[]>(() =>
+    (initialMessages ?? []).map((m) => ({
+      role: m.role,
+      text: m.text,
+      toolResults: m.role === 'assistant' ? m.tool_results : undefined,
+    })),
+  );
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [sending, setSending] = useState(false);
@@ -245,9 +268,37 @@ const NaasChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function NaasC
   // authenticate + call the same downstream API at once. The ref persists
   // across Strict Mode's simulated unmount/remount, so the guard holds
   // where a per-invocation local variable wouldn't.
-  const hasGreetedRef = useRef(false);
-  // Guards onFirstMessageSent so it only ever fires once per mount.
-  const hasSentFirstMessageRef = useRef(false);
+  // A reopened chat already has its opening — no greeting.
+  const hasGreetedRef = useRef(Boolean(initialMessages?.length));
+  // Guards onFirstMessageSent so it only ever fires once per mount (and
+  // never for a reopened chat, which the parent already shows as started).
+  const hasSentFirstMessageRef = useRef(Boolean(initialMessages?.length));
+  // True for the lifetime of this mounted instance, flipped false on
+  // unmount. NaasChatScreen remounts this whole panel on "New chat"/Home
+  // (a fresh `key`, see its own comment on `chatInstance`) specifically
+  // to close out the old session — but `postChatStream` has no
+  // cancellation of its own, so a turn that's still streaming at that
+  // exact moment keeps running regardless and, when it finally reaches
+  // its `onToolResult`/`onDone` callbacks below, would call straight into
+  // the PARENT's `onToolResults` — a stable function reference on
+  // NaasChatScreen, unaffected by this child unmounting — re-injecting
+  // the old session's tool_results (e.g. a stale bandwidth
+  // recommendation) into state that was just reset. Checked before every
+  // `onToolResults?.(...)` call below so a turn whose own instance has
+  // already been torn down can no longer affect the new one.
+  const isActiveRef = useRef(true);
+  useEffect(() => {
+    // Reset on every setup run, not just on initial value — React 18
+    // Strict Mode's dev-only double-invocation runs this effect's cleanup
+    // once immediately after the first mount, then setup again, on the
+    // same instance/ref; without this reset, that simulated cycle would
+    // leave isActiveRef permanently false for the rest of this instance's
+    // real lifetime, silently disabling every turn's onToolResults in dev.
+    isActiveRef.current = true;
+    return () => {
+      isActiveRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     const el = messagesContainerRef.current;
@@ -276,6 +327,8 @@ const NaasChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function NaasC
     // calls a tool at all (e.g. a specialist's own clarifying question
     // before its first tool call).
     let turnAgent: string | undefined;
+    // Set by onDone; reported only once the stream has closed (below).
+    let turnCompleted = false;
 
     const shouldSendLanguage = language !== (lastSentLanguageRef.current ?? 'English');
     if (shouldSendLanguage) lastSentLanguageRef.current = language;
@@ -293,6 +346,7 @@ const NaasChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function NaasC
           if (agent) turnAgent = agent;
         },
         onToolResult: (name, data, agent) => {
+          if (!isActiveRef.current) return;
           turnAgent = agent;
           // Surface each completed tool call immediately so side panels
           // can update while the assistant is still finishing its reply.
@@ -300,6 +354,11 @@ const NaasChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function NaasC
           setActiveAgent(agent);
         },
         onDone: (toolResults, agent) => {
+          // Before the guard below: the backend has this turn either way,
+          // and a chat the user already left still has to be saved (see
+          // onTurnComplete) — that touches no state of the new chat.
+          turnCompleted = true;
+          if (!isActiveRef.current) return;
           if (agent) turnAgent = agent;
           // Don't hardcode the "no text response" fallback here — a turn
           // that only calls a passthrough display tool (e.g.
@@ -316,12 +375,17 @@ const NaasChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function NaasC
           setSending(false);
         },
         onError: (message) => {
+          if (!isActiveRef.current) return;
           setMessages((prev) => [...prev, { role: 'assistant', text: `⚠️ ${message}` }]);
           setTurnPending(false);
           setSending(false);
         },
       },
     );
+    // After the stream has closed, not at its "done" event: the backend
+    // records the turn between the two, so a save triggered from here
+    // (leaving the chat) always includes it.
+    if (turnCompleted) onTurnComplete?.(sessionId);
   }
 
   // Show the opening greeting as soon as the chat screen opens, without
@@ -354,13 +418,14 @@ const NaasChatPanel = forwardRef<ChatPanelHandle, ChatPanelProps>(function NaasC
     if (overrideText === undefined) setInput('');
     if (!hasSentFirstMessageRef.current) {
       hasSentFirstMessageRef.current = true;
-      onFirstMessageSent?.();
+      onFirstMessageSent?.(text);
     }
     runTurn(text);
   }
 
   useImperativeHandle(ref, () => ({
     sendMessage: (text: string) => send(text),
+    getSessionId: () => sessionId,
   }));
 
   // A standalone screen already knows which single agent it's talking

@@ -1,4 +1,4 @@
-import { Home } from 'lucide-react';
+import { History, Home } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ROLE_NAAS_ADMIN } from '../manifest';
@@ -24,6 +24,11 @@ interface NavbarProps {
   onNewChat: () => void;
   language: Language;
   onLanguageChange: (language: Language) => void;
+  // Past-chats panel (ChatHistoryPanel.tsx), shown on the left.
+  historyOpen: boolean;
+  // False for a user with no chats yet: the button is shown greyed out.
+  historyAvailable: boolean;
+  onToggleHistory: () => void;
 }
 
 export default function NaasNavbar({
@@ -31,6 +36,9 @@ export default function NaasNavbar({
   onNewChat,
   language,
   onLanguageChange,
+  historyOpen,
+  historyAvailable,
+  onToggleHistory,
 }: NavbarProps) {
   const { t } = useTranslation();
   const { hasRole } = useAuth();
@@ -66,6 +74,21 @@ export default function NaasNavbar({
 
       <div className="navbar-spacer" />
       <div className="navbar-actions">
+        {/* aria-disabled rather than disabled: browsers show no tooltip on
+            a disabled button, and the tooltip is what explains why. */}
+        <button
+          type="button"
+          className={`navbar-history${historyOpen ? ' is-open' : ''}${
+            historyAvailable ? '' : ' is-disabled'
+          }`}
+          onClick={historyAvailable ? onToggleHistory : undefined}
+          aria-disabled={!historyAvailable}
+          aria-pressed={historyOpen}
+          aria-label={t('history.toggle')}
+          title={historyAvailable ? t('history.toggle') : t('history.noHistory')}
+        >
+          <History size={18} />
+        </button>
         <LanguageSelect language={language} onLanguageChange={onLanguageChange} />
         {canAdminister ? (
           <Link to="/naas/admin" className="navbar-admin-link">

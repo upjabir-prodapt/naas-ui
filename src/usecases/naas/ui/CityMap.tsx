@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { Map as MapLibreMap, Marker, LngLatBounds, setWorkerUrl } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 // MapLibre loads its tile-parsing worker from a URL it computes at runtime as
@@ -199,27 +199,42 @@ export default function CityMap({
   showWithoutPoints = false,
   loading = false,
 }: CityMapProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const markersRef = useRef<Marker[]>([]);
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const only = from ?? to;
-    const center: [number, number] = only ? [only.longitude, only.latitude] : WORLD_CENTER;
-    const zoom = only ? SINGLE_POINT_ZOOM : WORLD_ZOOM;
-    const map = createMap(containerRef.current, center, zoom);
-    mapRef.current = map;
-    return () => {
+  // Fires the instant the container div is actually attached to the DOM —
+  // which is NOT reliably this component's first render: the div is
+  // conditionally rendered (see the early `return null` below) whenever
+  // neither `from` nor `to` is given yet, the normal state for a
+  // Connection order before an address resolves to coordinates. A plain
+  // `useRef` + `useEffect(fn, [])` pair only runs once, on the component's
+  // actual first render — if that first render had no points and
+  // returned null, the container never existed yet, the effect's own
+  // `if (!containerRef.current) return` bailed out, and no map was EVER
+  // created for this component instance, even once from/to later arrived
+  // (an empty-deps effect does not run again). That was the bug behind
+  // "the map section shows up but stays empty" / "only works once I leave
+  // and come back to this page" — the page round-trip force-unmounts and
+  // remounts this component, which was the only thing that let the mount
+  // logic run a second time.
+  //
+  // Always seeds the map at the neutral world view regardless of from/to
+  // at this exact moment — deliberately not reading from/to here (doing
+  // so would mean reading a ref kept fresh by a render-phase write, which
+  // this project's lint rules correctly forbid: refs aren't meant to be
+  // read or written during render). The render effect just below already
+  // runs on this same component's first commit no matter what (mount
+  // always runs every effect once, regardless of dependency history), so
+  // whatever from/to actually are gets applied correctly a beat later via
+  // fitBounds/jumpTo — the neutral seed here is never actually visible.
+  const containerCallbackRef = useCallback((node: HTMLDivElement | null) => {
+    if (node) {
+      mapRef.current = createMap(node, WORLD_CENTER, WORLD_ZOOM);
+    } else {
       markersRef.current.forEach((m) => m.remove());
       markersRef.current = [];
-      map.remove();
+      mapRef.current?.remove();
       mapRef.current = null;
-    };
-    // Only the very first from/to (at mount) seed the initial center/zoom —
-    // every later change is handled by the render effect below via
-    // fitBounds/setCenter, not by recreating the map.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }
   }, []);
 
   useEffect(() => {
@@ -303,7 +318,7 @@ export default function CityMap({
   return (
     <div className="city-map-card">
       <div className="city-map" style={{ width, height }}>
-        <div ref={containerRef} className="city-map-canvas" />
+        <div ref={containerCallbackRef} className="city-map-canvas" />
         <MapAttribution />
         {loading && (
           <div

@@ -1,6 +1,9 @@
 import type {
   AgentPublic,
+  ChatDetail,
+  ChatHistoryMessage,
   ChatRequest,
+  ChatSummary,
   CircuitRoute,
   DemoCircuit,
   ReliabilityAuditEntry,
@@ -20,7 +23,10 @@ import { apiFetch, ApiError, apiJson, apiPostJson } from '@aicoe/aihub-platform/
 
 export type {
   AgentPublic,
+  ChatDetail,
+  ChatHistoryMessage,
   ChatRequest,
+  ChatSummary,
   CircuitRoute,
   DemoCircuit,
   ReliabilityAuditEntry,
@@ -133,6 +139,45 @@ export async function postChatStream(
       }
     }
   }
+}
+
+// Past chats (Navbar's History panel). The backend keeps the open chat in
+// Firestore and every closed one in BigQuery; these calls don't care which.
+// The list is fetched once per page load (NaasChatScreen.tsx) and kept up
+// to date locally after that.
+export async function fetchChatHistory(): Promise<ChatSummary[]> {
+  return await apiJson<ChatSummary[]>(`${API_BASE}/chats`, {
+    errorMessage: 'Failed to load chat history',
+  });
+}
+
+export async function fetchChat(sessionId: string): Promise<ChatDetail> {
+  return await apiJson<ChatDetail>(`${API_BASE}/chats/${encodeURIComponent(sessionId)}`, {
+    errorMessage: 'Failed to load chat',
+  });
+}
+
+// Saves the chat to BigQuery — called when the user leaves it (New chat,
+// opening another chat from History, or leaving the page). `keepalive` lets
+// the request finish after the tab is closed or reloaded.
+export async function closeChat(
+  sessionId: string,
+  { keepalive = false }: { keepalive?: boolean } = {},
+): Promise<void> {
+  await apiJson<void>(`${API_BASE}/chats/${encodeURIComponent(sessionId)}/close`, {
+    method: 'POST',
+    keepalive,
+    errorMessage: 'Failed to close chat',
+  });
+}
+
+export async function renameChat(sessionId: string, title: string): Promise<void> {
+  await apiJson<void>(`${API_BASE}/chats/${encodeURIComponent(sessionId)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ title }),
+    errorMessage: 'Failed to rename chat',
+  });
 }
 
 export async function fetchPendingTickets(): Promise<ServiceOrderTicket[]> {

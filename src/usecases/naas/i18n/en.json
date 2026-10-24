@@ -158,13 +158,14 @@
   "admin": {
     "backLink": "NaaS Assistant",
     "title": "Service Order Tickets",
+    "closeDetails": "Close",
     "pendingTab": "Pending ({{count}})",
     "historyTab": "History ({{count}})",
     "table": {
       "ticket": "Ticket",
       "type": "Type",
       "address": "Address",
-      "building": "Building",
+      "building": "Name",
       "bandwidth": "Bandwidth",
       "commitment": "Commitment",
       "rentalCharge": "Rental Charge",
@@ -178,6 +179,7 @@
     "productTypes": {
       "ethernetPort": "Ethernet Port",
       "offnetPort": "Offnet Port",
+      "comcastPort": "Comcast Port",
       "offnetModification": "Offnet Port Modification",
       "ethernetConnection": "Ethernet Connection"
     }
@@ -189,6 +191,22 @@
   "infoCanvas": {
     "title": "Info Canvas",
     "subtitle": "Visual information on agent response will be dynamically updated."
+  },
+  "history": {
+    "toggle": "Chat history",
+    "title": "Chat history",
+    "close": "Close chat history",
+    "loading": "Loading…",
+    "noHistory": "No chat history yet",
+    "empty": "No past chats yet.",
+    "loadFailed": "Couldn't load your chat history.",
+    "retry": "Retry",
+    "openFailed": "Couldn't open that chat. Please try again.",
+    "notSaved": "Not saved yet",
+    "untitled": "Untitled chat",
+    "rename": "Rename",
+    "renameLabel": "Chat title",
+    "renameFailed": "Couldn't rename that chat. Please try again."
   },
   "greetings": {
     "serviceOrder": "Hi, I'm your Service Order Agent. Let me know how I can help you today!"

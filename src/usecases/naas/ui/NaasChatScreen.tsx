@@ -1,13 +1,42 @@
-import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import UnifiedLeftPanel from './UnifiedLeftPanel';
 import { renderChatExtra } from './chatExtras';
 import NaasChatPanel, { type ChatPanelHandle } from './NaasChatPanel';
 import NaasNavbar from './NaasNavbar';
+import ChatHistoryPanel from './ChatHistoryPanel';
 import { useNaasLanguage } from '../useNaasLanguage';
+import {
+  closeChat,
+  fetchChat,
+  fetchChatHistory,
+  renameChat,
+  type ChatHistoryMessage,
+  type ChatSummary,
+} from '../api';
 import '../naas.css';
 import ChatMenuBar from './ChatMenuBar';
 
+// Narrow on purpose: it takes its width from the chat column, not the
+// Info Canvas. Scales with the screen between the two bounds.
+const HISTORY_PANEL_WIDTH = 'clamp(190px, 16vw, 230px)';
+
+// History lists only the main chat's conversations (NaasChatPanel's
+// orchestrator id). The backend also records chats from the standalone
+// /naas/agents/:agentId testing screens; reopening one here would send its
+// next message to the orchestrator, which has no memory of that chat.
+const LISTED_AGENT_ID = 'orchestrator';
+
+// Same rule as the backend's chat_transcript_repository.make_title, so a
+// new chat is listed under the title it will be saved with.
+const TITLE_MAX_CHARS = 60;
+
+function makeTitle(firstMessage: string): string {
+  const text = firstMessage.split(/\s+/).filter(Boolean).join(' ');
+  return text.length <= TITLE_MAX_CHARS
+    ? text
+    : `${text.slice(0, TITLE_MAX_CHARS - 1).trimEnd()}…`;
+}
 const DEFAULT_RIGHT_WIDTH_PERCENT = 40;
 const MIN_RIGHT_WIDTH_PERCENT = 20;
 const MAX_RIGHT_WIDTH_PERCENT = 50;
@@ -103,14 +132,192 @@ export default function NaasChatScreen() {
   const bodyRef = useRef<HTMLDivElement>(null);
   const [rightWidthPercent, setRightWidthPercent] = useState(DEFAULT_RIGHT_WIDTH_PERCENT);
   const [isDragging, setIsDragging] = useState(false);
+  // Past chats (ChatHistoryPanel.tsx), opened from Navbar's History button.
+  const [historyOpen, setHistoryOpen] = useState(false);
+  // The user's chats, newest first: fetched once per page load (one
+  // BigQuery query) and kept up to date locally after that — a new chat,
+  // a chat ending and a rename all change it here without refetching.
+  // null while loading.
+  const [chats, setChats] = useState<ChatSummary[] | null>(null);
+  const [chatsLoadFailed, setChatsLoadFailed] = useState(false);
+  const historyLoadStartedRef = useRef(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [openingChat, setOpeningChat] = useState(false);
+  // The chat on screen — null on the welcome screen until the first
+  // message is sent. Highlighted in the history list.
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  // A past chat being continued: NaasChatPanel mounts with its session id
+  // and messages instead of a fresh session.
+  const [restoredChat, setRestoredChat] = useState<{
+    sessionId: string;
+    messages: ChatHistoryMessage[];
+  } | null>(null);
+  // Whether the chat on screen has turns not yet saved to BigQuery: leaving
+  // it then saves it and moves it to the top of History as just ended.
+  const hasNewTurnsRef = useRef(false);
+  // The first message of a new chat — its History title once the first
+  // turn completes (the backend only records completed turns).
+  const firstMessageRef = useRef<string | null>(null);
+  // activeSessionId, readable from the page-leave handler below (which is
+  // registered once) and after NaasChatPanel's own ref is already detached.
+  const activeSessionIdRef = useRef<string | null>(null);
 
-  function handleNewChat() {
-    setChatStarted(false);
+  function setActiveSession(sessionId: string | null) {
+    activeSessionIdRef.current = sessionId;
+    setActiveSessionId(sessionId);
+  }
+
+  // The list is one Firestore read (the user's record), so it is fetched
+  // on page load and again whenever History is opened or a chat finishes in
+  // the background — the panel always matches Firestore, even for a chat
+  // the user left before its first reply arrived. A failed refresh keeps
+  // the list already on screen.
+  function loadChats({ refresh = false }: { refresh?: boolean } = {}) {
+    if (!refresh) setChatsLoadFailed(false);
+    fetchChatHistory()
+      .then((result) => {
+        setChats(result.filter((chat) => chat.agent_id === LISTED_AGENT_ID));
+        setChatsLoadFailed(false);
+      })
+      .catch(() => {
+        if (refresh) return;
+        setChats([]);
+        setChatsLoadFailed(true);
+      });
+  }
+
+  // Once per page load. The ref keeps it to one request even where React
+  // runs mount effects twice (development).
+  useEffect(() => {
+    if (historyLoadStartedRef.current) return;
+    historyLoadStartedRef.current = true;
+    loadChats();
+  }, []);
+
+  // Saves the chat on screen to BigQuery (POST /chats/{id}/close) as the
+  // user leaves it — only when it has new turns, so merely viewing a past
+  // chat doesn't write it again. Fire-and-forget: a failure must not block
+  // starting or opening another chat — the chat stays in Firestore.
+  function leaveCurrentChat({ keepalive = false }: { keepalive?: boolean } = {}) {
+    const sessionId = activeSessionIdRef.current;
+    if (!sessionId || !hasNewTurnsRef.current) return;
+    hasNewTurnsRef.current = false;
+    closeChat(sessionId, { keepalive }).catch(() => {});
+  }
+
+  async function handleRenameChat(sessionId: string, title: string) {
+    setHistoryError(null);
+    try {
+      await renameChat(sessionId, title);
+    } catch (err) {
+      setHistoryError(t('history.renameFailed'));
+      throw err;
+    }
+    setChats((prev) =>
+      prev ? prev.map((c) => (c.session_id === sessionId ? { ...c, title } : c)) : prev,
+    );
+  }
+
+  // Leaving the page (tab closed, reload, browser navigation) or this screen
+  // (e.g. the Admin link) archives the chat too — otherwise only Home and
+  // switching chats would, and a chat the user simply walked away from
+  // would never reach BigQuery. `pagehide` rather than `beforeunload`: it
+  // also fires when the page goes into the back/forward cache, and doesn't
+  // block it. Not on tab switches (`visibilitychange`), which would archive
+  // a chat the user is still in.
+  useEffect(() => {
+    const onPageHide = () => leaveCurrentChat({ keepalive: true });
+    window.addEventListener('pagehide', onPageHide);
+    return () => {
+      window.removeEventListener('pagehide', onPageHide);
+      leaveCurrentChat({ keepalive: true });
+    };
+    // Registered once: everything it reads is a ref or a state setter.
+  }, []);
+
+  function resetChatState() {
     setLastActiveAgent(null);
     setToolResults({});
     setSelectedCircuitReference(null);
     setRightWidthPercent(DEFAULT_RIGHT_WIDTH_PERCENT);
+  }
+
+  function handleNewChat() {
+    leaveCurrentChat();
+    resetChatState();
+    setChatStarted(false);
+    setActiveSession(null);
+    setRestoredChat(null);
+    firstMessageRef.current = null;
     setChatInstance((n) => n + 1);
+  }
+
+  async function handleOpenChat(sessionId: string) {
+    setOpeningChat(true);
+    setHistoryError(null);
+    try {
+      const chat = await fetchChat(sessionId);
+      leaveCurrentChat();
+      resetChatState();
+      // Rebuild the Info Canvas exactly as the live chat left it, by
+      // replaying each turn's tool_results in order through the same
+      // merge the live chat uses.
+      for (const message of chat.messages) {
+        if (message.role === 'assistant' && Object.keys(message.tool_results).length > 0) {
+          handleToolResults(message.tool_results, message.agent ?? undefined);
+        }
+      }
+      setRestoredChat({ sessionId: chat.session_id, messages: chat.messages });
+      setActiveSession(chat.session_id);
+      firstMessageRef.current = null;
+      setChatStarted(true);
+      setChatInstance((n) => n + 1);
+    } catch {
+      setHistoryError(t('history.openFailed'));
+    } finally {
+      setOpeningChat(false);
+    }
+  }
+
+  function handleTurnComplete(turnSessionId: string) {
+    const sessionId = activeSessionIdRef.current;
+    if (turnSessionId !== sessionId) {
+      // The reply finished after the user had already left that chat (Home
+      // or another chat while it was still loading): leaving didn't save it,
+      // as it had no finished turn then, so save it now.
+      closeChat(turnSessionId).catch(() => {});
+      // It may be a new chat that never made it into the list on screen.
+      loadChats({ refresh: true });
+      return;
+    }
+    hasNewTurnsRef.current = true;
+    const firstMessage = firstMessageRef.current;
+    firstMessageRef.current = null;
+    // The chat on screen moves to the top showing its latest reply's time
+    // — display only, nothing is stored; leaving the chat replaces it with
+    // the session's end time. A new chat is listed from its first
+    // completed turn, which is when the backend has it.
+    const now = new Date().toISOString();
+    setChats((prev) => {
+      if (!prev) return prev;
+      const existing = prev.find((c) => c.session_id === sessionId);
+      if (!existing && firstMessage === null) return prev;
+      const entry: ChatSummary = existing
+        ? { ...existing, updated_at: now }
+        : {
+            session_id: sessionId,
+            agent_id: LISTED_AGENT_ID,
+            title: makeTitle(firstMessage ?? ''),
+            updated_at: now,
+          };
+      return [entry, ...prev.filter((c) => c.session_id !== sessionId)];
+    });
+  }
+
+  function handleFirstMessageSent(text: string) {
+    setChatStarted(true);
+    setActiveSession(chatPanelRef.current?.getSessionId() ?? null);
+    firstMessageRef.current = text;
   }
 
   function handleToolResults(newResults: Record<string, unknown>, agent?: string) {
@@ -206,21 +413,45 @@ export default function NaasChatScreen() {
       onNewChat={handleNewChat}
       language={language}
       onLanguageChange={setLanguage}
+      historyOpen={historyOpen}
+      // Greyed out only once the list is known to be empty (a new user).
+      // While it loads the button looks normal, so a user with history
+      // never sees it greyed; a failed load stays clickable to offer a retry.
+      historyAvailable={chats === null || chats.length > 0 || chatsLoadFailed}
+      onToggleHistory={() => {
+        setHistoryError(null);
+        if (!historyOpen) loadChats({ refresh: true });
+        setHistoryOpen((open) => !open);
+      }}
     />
 
     <div
       className="agent-screen-body"
       ref={bodyRef}
-      style={
-        chatStarted
-          ? {
-              gridTemplateColumns: `1fr 6px ${rightWidthPercent}%`,
-            }
-          : {
-              gridTemplateColumns: '1fr',
-            }
-      }
+      style={{
+        gridTemplateColumns: [
+          historyOpen ? HISTORY_PANEL_WIDTH : null,
+          chatStarted ? `1fr 6px ${rightWidthPercent}%` : '1fr',
+        ]
+          .filter(Boolean)
+          .join(' '),
+      }}
     >
+      {historyOpen && (
+        <ChatHistoryPanel
+          chats={chats ?? []}
+          loading={chats === null}
+          loadFailed={chatsLoadFailed}
+          onRetry={() => loadChats()}
+          activeSessionId={activeSessionId}
+          disabled={openingChat}
+          errorMessage={historyError}
+          onSelect={handleOpenChat}
+          onRename={handleRenameChat}
+          onClose={() => setHistoryOpen(false)}
+        />
+      )}
+
       <section
         className={`agent-screen-right${
           chatStarted ? '' : ' agent-screen-right--welcome'
@@ -251,7 +482,10 @@ export default function NaasChatScreen() {
           onToolResults={handleToolResults}
           onCircuitSelect={setSelectedCircuitReference}
           renderBeforeMessage={renderChatExtra}
-          onFirstMessageSent={() => setChatStarted(true)}
+          onFirstMessageSent={handleFirstMessageSent}
+          onTurnComplete={handleTurnComplete}
+          initialSessionId={restoredChat?.sessionId}
+          initialMessages={restoredChat?.messages}
         />
 
         {!chatStarted && (
