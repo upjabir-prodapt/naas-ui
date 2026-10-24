@@ -22,10 +22,10 @@ export default defineConfig([
   },
 
   /*
-   * Architectural boundary, the same one the hub enforces on src/usecases/:
-   * the platform is reached only through @aicoe/aihub-platform's public
-   * subpath exports (/shell, /auth, /api, /ui, ...). Its internals are not an
-   * API and move between releases without notice.
+   * Architectural boundary: the platform is reached only through
+   * @aicoe/aihub-platform's public subpath exports (/shell, /auth, /api,
+   * /ui, ...). Its internals are not an API and move between releases
+   * without notice.
    */
   {
     files: ['src/**/*.{ts,tsx}'],

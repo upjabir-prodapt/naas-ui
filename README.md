@@ -4,13 +4,80 @@ The front end of the On-Demand NaaS use case on the Colt AI Hub: a React SPA ser
 as static files by nginx from its own Cloud Run service, `naas-ui`, in
 `gclt-aicoe-dev-st` (`europe-west3`).
 
-It was split out of `code-scanning-toolset/shared-aihub-ui`,
-where the same pages ran inside the hub. The use-case code under
-`src/usecases/naas/` and `src/usecases/base.ts` is copied unchanged from the
-hub's `frontend/src/usecases/`; the shell, sign-in, API client, job tracker and
-UI primitives come from the shared package `@aicoe/aihub-platform`.
+It was split out of `code-scanning-toolset/shared-aihub-ui`, where the same
+pages ran inside the hub. **This repository is now the source of truth for the
+NaaS UI**: the hub no longer carries a copy, and all NaaS UI work happens here.
+The shell, sign-in, API client, quota handling and UI primitives come from the
+shared package `@aicoe/aihub-platform`; everything NaaS-specific lives in `src/`.
 
 GitLab: `code-scanning-toolset/shared-naas-ui`. Branches `sandbox` → `dev` → `prod`.
+
+## Source layout
+
+```
+src/
+  main.tsx              bootstrap: platform CSS, i18n resources, quota services, render <App />
+  app/
+    App.tsx             router + platform providers
+    routes.tsx          every route and role gate (/naas, /naas/agents/:agentId, /naas/admin)
+    config.ts           the app's slug, roles, admin roles, sidebar, i18n: what the platform needs
+    leaveApp.ts         full-page navigation to a path another app on the host serves
+  pages/                one component per route
+    ChatPage.tsx        /naas: the orchestrator chat, history, unified Info Canvas
+    AgentPage.tsx       /naas/agents/:agentId: one specialist agent's screen
+    AdminPage.tsx       /naas/admin: service-order ticket approval (NaaS.Admin, Platform.Admin)
+  components/           layout and pieces shared by several pages or features
+                        (Navbar, ChatMenuBar, ChatHistoryPanel, UnifiedLeftPanel,
+                        leftPanels, CityMap, LanguageSelect, InfoCanvasPlaceholder, AiAnalysisNote)
+  features/
+    chat/               ChatPanel (streaming transcript), greetings, chatExtras (tool result -> card)
+    service-order/      ServiceOrderPanel and its chat cards (port/building/bandwidth pickers,
+                        pricing, recommendations, invoice)
+    service-config/     ServiceConfigPanel
+    sre/                SreMonitorPanel, SreClosedLoopPanel and the circuit, rule, time-period
+                        and audit-log tables
+  api/
+    client.ts           every call to /api/naas/v1/* (agents, chat stream, chat history,
+                        admin tickets, reliability, circuit routes)
+    types.ts            the shapes those calls and the agents' tool_results return
+  i18n/                 en.json, ja.json, useNaasLanguage.ts
+  assets/               logos
+  styles/naas.css       the app's stylesheet (CityMap.css sits next to CityMap.tsx)
+  test/setup.ts         Vitest setup
+```
+
+Tests sit next to the code they test (`*.test.ts(x)`); Vitest picks up any
+under `src/`.
+
+### Where to put things
+
+- **A new page / route**: a component in `src/pages/`, and its `<Route>` in
+  `src/app/routes.tsx` (lazy-loaded, inside the `RequireRole` for the app's
+  roles). Paths are host paths starting with `naas`, because there is no router
+  basename (below). A sidebar entry goes in `nav` in `src/app/config.ts`.
+- **A surface that needs extra roles**: a role constant in `src/app/config.ts`,
+  used by both the nested `RequireRole` in `routes.tsx` and any link that shows
+  it (as `ROLE_NAAS_ADMIN` is for `/naas/admin` and the navbar's Admin link).
+  Keep it equal to what Apigee and the backend enforce, and pin it in
+  `config.test.ts`.
+- **A new backend call**: a function in `src/api/client.ts` (through the
+  platform's `apiJson` / `apiPostJson` / `apiFetch`, which carry the session,
+  CSRF and quota handling) and its types in `src/api/types.ts`. No component
+  calls `fetch` directly.
+- **A new card rendered in the chat for a tool result**: the component in the
+  feature it belongs to (`features/service-order/`, `features/sre/`, ...), and
+  one check for the tool name in `features/chat/chatExtras.tsx`.
+- **A new specialist agent's Info Canvas panel**: a new folder under
+  `src/features/`, registered in `components/leftPanels.tsx` (standalone agent
+  screen) and `components/UnifiedLeftPanel.tsx` (orchestrator chat).
+- **Something used by more than one feature or page**: `src/components/`.
+- **Text**: a key in both `src/i18n/en.json` and `src/i18n/ja.json`, read with
+  `useTranslation()`.
+- **Styles**: `src/styles/naas.css`; a component-sized stylesheet may sit next
+  to its component (as `CityMap.css` does).
+- **Shell, sign-in, quota, shared UI primitives**: not here. They belong to
+  `@aicoe/aihub-platform` in `shared-aihub-ui`; take a fix by bumping the
+  package version.
 
 ## How requests reach this app
 
@@ -36,16 +103,17 @@ browser ──► https://aihub.aicoedev-int.colt.net/...
   breadcrumb root and "Feedback & support" are full-page links: the hub is a
   different service behind the same load balancer. A client-side navigation to
   a path outside `/naas` (e.g. a "back" button calling `navigate('/')`) is
-  turned into a full-page load too (`src/AppRoutes.tsx`).
+  turned into a full-page load too (`src/app/routes.tsx`).
 
 ### No router basename
 
-`src/AppRoutes.tsx` mounts the manifest exactly as the hub's `router.tsx` does,
-with **no** `basename`. The manifest's routes (`naas/...`), its sidebar
-entries and the vertical's own links are written as paths on the shared host,
-because that is what they are in the hub; a basename of `/naas` would prefix
-each of them a second time. Since only `/naas/*` ever reaches this app, host
-paths and router paths are the same thing.
+`src/app/routes.tsx` mounts the routes with **no** `basename`. The routes
+(`naas`, `naas/agents/:agentId`, `naas/admin`), the sidebar entries and the
+app's own links (`<Link to="/naas">`, `<Link to="/naas/admin">`) are written as
+paths on the shared host; a basename of `/naas` would prefix each of them a
+second time. Since only `/naas/*` ever reaches this app, host paths and router
+paths are the same thing. (The `/naas/` prefix of the *bundle's* URLs is Vite's
+`base`, a separate thing.)
 
 The one platform path outside the app is `/denied`: `RequireRole` redirects a
 user without the role there. This app forwards it to `/naas/denied`, so the

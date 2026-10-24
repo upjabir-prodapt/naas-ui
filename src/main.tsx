@@ -8,16 +8,16 @@ import '@aicoe/aihub-platform/styles.css';
 import { addUseCaseResources } from '@aicoe/aihub-platform/i18n';
 import { setQuotaServices } from '@aicoe/aihub-platform/api';
 import { ErrorBoundary } from '@aicoe/aihub-platform/ui';
-import App from './App';
-import { useCase } from './useCase';
+import App from './app/App';
+import { appConfig } from './app/config';
 
-// This vertical's own translations, merged into the shared bundle.
-if (useCase.i18n) addUseCaseResources(useCase.i18n);
+// This app's own translations, merged into the shared bundle.
+addUseCaseResources(appConfig.i18n);
 
 // Platform knows no slugs: tell the API client which `/api/<slug>/` responses
 // carry quota headers. Before the first render, so it is in place before the
 // first request goes out.
-setQuotaServices([useCase.slug]);
+setQuotaServices([appConfig.slug]);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
