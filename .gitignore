@@ -36,3 +36,6 @@ Thumbs.db
 .ci-work/
 workload_identity.jwt
 credentials.json
+
+# CI/CD variable values are kept locally only, never committed.
+GITLAB_CI_VARIABLES.md
