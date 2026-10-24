@@ -1,0 +1,27 @@
+# Installed and built inside the image; a host copy would be the wrong
+# platform's binaries and a stale bundle.
+node_modules/
+dist/
+coverage/
+
+# Never send credentials to the build context. The registry token reaches the
+# build only through `--secret id=npmrc` (see Dockerfile).
+.npmrc.local
+*.token
+.env
+.env.*
+
+# CI scratch space and tooling the runner installs into the project directory.
+.git/
+.tools/
+.cache/
+.ci-work/
+.tmp/
+workload_identity.jwt
+credentials.json
+
+# Editor and OS noise.
+.vscode/
+.idea/
+.DS_Store
+*.log

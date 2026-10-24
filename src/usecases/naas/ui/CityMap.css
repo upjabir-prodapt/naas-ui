@@ -1,0 +1,182 @@
+.city-map-card {
+  background: var(--bg-surface);
+  border-radius: 14px;
+  padding: 0.75rem;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  justify-content: center;
+  /* The map body itself is a fixed 300x170 box (see .city-map) that
+     doesn't grow — when this card is stretched taller to match the
+     detail card beside it (see .sre-monitor-top-row's align-items:
+     stretch), this centers the map vertically within that extra height
+     instead of leaving it pinned to the top. */
+  align-items: center;
+  /* The map itself is a fixed 300px wide (raster tiles are positioned in
+     real pixels, not relative units) — on a left panel dragged narrower
+     than that, clip rather than forcing the whole page to scroll
+     horizontally. Centered, so both edges crop evenly. */
+  max-width: 100%;
+  overflow: hidden;
+  /* Required alongside overflow: hidden above — per the flexbox spec, a
+     flex item with non-visible overflow gets an automatic minimum size
+     of 0 instead of its content size, so inside a flex parent (see
+     .sre-monitor-top-row) it would otherwise get crushed to a sliver by
+     flex-shrink while siblings without overflow:hidden stay full size.
+     flex-shrink: 0 keeps this card at its natural height regardless. */
+  flex-shrink: 0;
+}
+
+.city-map {
+  position: relative;
+  overflow: hidden;
+  /* Same reasoning as .city-map-card's flex-shrink: 0 above — this is
+     also a flex item (the sole child of .city-map-card's row layout) and
+     also has non-visible overflow, so without this it could still be
+     shrunk toward 0 height on an extremely narrow panel. */
+  flex-shrink: 0;
+  border-radius: 10px;
+  background: var(--bg-elevated);
+}
+
+.city-map-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+/* Each MapLibre marker is a plain HTML element (see createMarkerElement in
+   CityMap.tsx). MapLibre itself adds its own "maplibregl-marker" class to
+   this same element, which sets position: absolute — that's what makes
+   its translate(Xpx,Ypx) translate(-50%,-50%) transform land the marker
+   exactly on the map coordinate, so it must NOT be overridden here (an
+   earlier `position: relative` here quietly won that fight, since this
+   stylesheet loads after maplibre-gl's, leaving markers positioned by
+   document flow instead of the map projection — the visible symptom was
+   the route line not meeting the marker's center). This rule only needs
+   to size the box; MapLibre's own class already establishes the
+   positioning context absolute-positioned children below need.
+   --city-map-marker-color is set inline per point — defaults to this
+   app's accent color when a caller doesn't specify one. */
+.city-map-marker {
+  width: 18px;
+  height: 18px;
+}
+
+.city-map-marker-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--city-map-marker-color, var(--text-teal));
+  opacity: 0.55;
+}
+
+.city-map-marker-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--city-map-marker-color, var(--text-teal));
+  border: 1.5px solid var(--bg-surface);
+}
+
+/* City label only shows on hover — the connecting line/markers themselves
+   are always visible; only the (potentially long) city name text toggles
+   on hover, so it never permanently covers other content on a small map. */
+.city-map-city-label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(6px, -18px);
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+  padding: 0.05rem 0.4rem;
+  border-radius: 4px;
+  box-shadow: var(--shadow-md);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+}
+
+.city-map-marker:hover .city-map-city-label {
+  opacity: 1;
+}
+
+/* Plain-text attribution (required by OpenFreeMap's terms) — always
+   visible, no click-to-expand toggle. Sits in its own layer above the
+   canvas so it's never affected by MapLibre re-rendering the container's
+   contents. */
+.city-map-attribution {
+  position: absolute;
+  right: 0.3rem;
+  bottom: 0.2rem;
+  z-index: 1;
+  font-size: 0.55rem;
+  line-height: 1.2;
+  color: var(--text-secondary);
+  background: color-mix(in srgb, var(--bg-surface) 80%, transparent);
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+  white-space: nowrap;
+  max-width: calc(100% - 0.6rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.city-map-attribution a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.city-map-attribution a:hover {
+  text-decoration: underline;
+}
+
+/* CityMapLoading — same three-dot pulse as ChatPanel's pending indicator,
+   centered in the same fixed-size box the real map renders into. */
+.city-map-loading {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.city-map-loading-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  animation: city-map-loading-pulse 1.2s infinite ease-in-out;
+}
+
+.city-map-loading-dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.city-map-loading-dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes city-map-loading-pulse {
+  0%,
+  60%,
+  100% {
+    opacity: 0.3;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+

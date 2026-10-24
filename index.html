@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Root-relative URLs here are rewritten under Vite's base, so this
+         resolves to /naas/favicon.svg, served by this app's own container. -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="On-Demand NaaS — Colt AI Hub." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin />
+    <!-- Sole font request for the app, as in the hub: the platform stylesheet
+         deliberately does NOT re-@import these families. Urbanist weights are
+         limited to those the UI actually uses: 400 body, 500/600/700 UI
+         chrome, 900 (Black) for h1/h2 per the brand's heading guidance. -->
+    <link href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400;500;600;700;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <title>On-Demand NaaS · Colt AI Hub</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

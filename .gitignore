@@ -1,0 +1,38 @@
+# Node.js dependencies
+node_modules/
+
+# Production
+dist/
+coverage/
+
+# Vite cache
+.vite/
+
+# Logs
+npm-debug.log*
+*.log
+
+# Environment files
+.env
+.env.*
+
+# Registry credentials. The committed .npmrc holds the scope mapping only; a
+# token belongs in your user-level ~/.npmrc (see README.md), never here.
+.npmrc.local
+*.token
+
+# System files
+.DS_Store
+Thumbs.db
+
+# IDE/editor folders
+.vscode/
+.idea/
+.claude/
+
+# CI job scratch space (toolchains and caches installed into the build dir)
+.tools/
+.cache/
+.ci-work/
+workload_identity.jwt
+credentials.json

@@ -1,0 +1,112 @@
+# nginx for one use-case UI on the AI Hub host.
+#
+# Rendered at IMAGE BUILD time by nginx/render-conf.sh (see Dockerfile), never at
+# container start: the SLUG and CSP placeholders are replaced once and the result is
+# copied to /etc/nginx/conf.d/default.conf. Nothing here reads the environment,
+# and the file is deliberately NOT under /etc/nginx/templates/, where the base
+# image's entrypoint would run envsubst over it on every start.
+#
+# The load balancer path-routes https://aihub.<domain>/@SLUG@ and /@SLUG@/* to this
+# service on the SAME host as the hub, and does not rewrite the path. So the
+# container sees /@SLUG@, /@SLUG@/, /@SLUG@/assets/... and deep links such as
+# /@SLUG@/some/page. /auth/*, /api/<slug>/v1/* and /platform/* are served by
+# aihub-bff, never by this container: nothing here proxies anything.
+#
+# Included from the base image's nginx.conf inside http{}, which is why the
+# map and log_format below may live at the top of this file.
+
+# Cache policy, keyed on the final URI (after try_files' internal redirect, so
+# a deep link served as index.html gets index.html's policy). Set with one
+# server-level add_header so the security headers below are never lost to a
+# location-level add_header (nginx does not merge them).
+#
+# Vite emits content-hashed filenames under assets/, so those are immutable.
+# index.html must never be cached: it names the current hashes. Anything else
+# (favicon) is revalidated, as aihub-bff does.
+map $uri $aihub_ui_cache_control {
+    default                 "no-cache";
+    ~^/@SLUG@/assets/       "public, max-age=31536000, immutable";
+    /@SLUG@/index.html      "no-store";
+    /healthz                "no-store";
+}
+
+# PII-safe access log: path without the query string, no cookies, no IAP
+# assertion, no user email. Cloud Run's own request log carries the rest.
+log_format aihub_ui '$status "$request_method $uri $server_protocol" '
+                    'bytes=$body_bytes_sent rt=$request_time';
+
+server {
+    listen 8080;
+    server_name _;
+
+    access_log /dev/stdout aihub_ui;
+
+    # "Server: nginx", with no version.
+    server_tokens off;
+    # Redirects carry a path only (Location: /@SLUG@/), never
+    # http://<container-host>:8080/..., which the browser could not reach.
+    absolute_redirect off;
+
+    charset utf-8;
+    charset_types text/css text/plain text/javascript application/javascript application/json image/svg+xml;
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_types text/css text/plain text/javascript application/javascript application/json image/svg+xml;
+
+    root /usr/share/nginx/html;
+
+    # The same headers aihub-bff sends with the SPA
+    # (bff/app/kernel/observability/security_headers.py), on every response:
+    # HTML, assets, redirects and errors alike. The CSP is that file's
+    # build_csp() in its non-dev form, rendered by nginx/render-conf.sh.
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Cross-Origin-Opener-Policy "same-origin" always;
+    add_header Content-Security-Policy "@CSP@" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    # Not `always`: a 404 must not be cached for a year.
+    add_header Cache-Control $aihub_ui_cache_control;
+
+    # Liveness for Cloud Run probes. Never routed here by the load balancer
+    # (only /@SLUG@ and /@SLUG@/* are), so it is not a public surface.
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    # The app root without its trailing slash. Relative redirect (see
+    # absolute_redirect above); the query string is kept.
+    location = /@SLUG@ {
+        return 301 /@SLUG@/$is_args$args;
+    }
+
+    location = /@SLUG@/index.html {
+        try_files $uri =404;
+    }
+
+    # Hashed build output. A missing file is a real 404, never index.html:
+    # serving HTML as a stale chunk turns a cache miss after a deploy into a
+    # MIME-type error deep inside the bundle.
+    location ^~ /@SLUG@/assets/ {
+        location ~ /$ {
+            return 404;
+        }
+        try_files $uri =404;
+    }
+
+    # Everything else under the app is either a real file (favicon) or a client
+    # route, which gets the SPA shell.
+    location /@SLUG@/ {
+        try_files $uri /@SLUG@/index.html;
+    }
+
+    # Nothing outside /@SLUG@ should ever arrive here. Fail closed if it does.
+    location / {
+        return 404;
+    }
+}

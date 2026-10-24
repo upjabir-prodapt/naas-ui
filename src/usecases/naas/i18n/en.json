@@ -1,0 +1,196 @@
+{
+  "navbar": {
+    "home": "Home",
+    "homeTooltip": "Close this session and return to the welcome screen",
+    "newChat": "New chat",
+    "closeSession": "Close this session and start a new chat",
+    "logoAlt": "Colt On-Demand NaaS 2.0",
+    "activeAgent": "Active agent",
+    "activeAgentTooltip": "Start a chat and the specialized agent will pick up your request.",
+    "admin": "Admin",
+    "adminRequiresRole": "Requires the NaaS.Admin role",
+    "agents": {
+      "serviceOrder": "Service Order",
+      "serviceObservability": "Service Observability",
+      "serviceReliability": "Service Reliability",
+      "serviceConfig": "Service Configuration"
+    }
+  },
+  "welcome": {
+    "heading": "Welcome to <brand>Colt NaaS</brand>",
+    "subheading": "How can I help you today?",
+    "samplePrompts": {
+      "telemetry": "Show the telemetry for my connections",
+      "rules": "Show my active reliability rules",
+      "order": "Help me place a new Ethernet Connection order",
+      "config": "View or edit a connection's configuration"
+    }
+  },
+  "chat": {
+    "inputPlaceholder": "Type a message…",
+    "noResponse": "(agent produced no text response)",
+    "resizePanels": "Resize agent panels",
+    "resizeTooltip": "Drag to resize — double-click to reset",
+    "pendingStatus": [
+      "Gathering information",
+      "Fetching details",
+      "Looking into it",
+      "Thinking",
+      "Analyzing",
+      "Processing",
+      "Checking the numbers",
+      "Cross-referencing",
+      "Working on it",
+      "Putting it together"
+    ]
+  },
+  "language": {
+    "agentLanguage": "Language",
+    "selectTooltip": "Select the language for the app and agent conversation"
+  },
+  "errors": {
+    "circuitLookupUnavailable": "Circuit lookup is temporarily unavailable: ",
+    "portLookupUnavailable": "Port lookup is temporarily unavailable: ",
+    "pricingLookupUnavailable": "Pricing lookup is temporarily unavailable: ",
+    "unknownAgent": "Unknown agent: {{agentId}}",
+    "loadAgentsFailed": "Failed to load agents ({{status}})",
+    "chatUnreachable": "Could not reach the agent backend: {{message}}",
+    "chatRequestFailed": "Chat request failed ({{status}})",
+    "loadPendingTicketsFailed": "Failed to load pending tickets ({{status}})",
+    "loadTicketHistoryFailed": "Failed to load ticket history ({{status}})",
+    "approveTicketFailed": "Failed to approve ticket {{ticketId}} ({{status}})",
+    "simulateHighFailed": "Failed to simulate high utilization ({{status}})",
+    "simulateLowFailed": "Failed to simulate low utilization ({{status}})"
+  },
+  "sreMonitor": {
+    "aboveNormal": "Above Normal",
+    "normal": "Normal",
+    "elevated": "Elevated",
+    "aiAnalysis": "AI Analysis",
+    "noCircuitSelected": "No circuit selected yet",
+    "fields": {
+      "circuitReference": "Circuit reference",
+      "ocn": "OCN",
+      "currentBandwidth": "Current bandwidth",
+      "baseBandwidth": "Base bandwidth",
+      "connectionType": "Connection type",
+      "resiliency": "Resiliency",
+      "status": "Status"
+    },
+    "bandwidthUtilization": "Bandwidth Utilization",
+    "bandwidthUtilizationUnavailable": "Bandwidth utilization unavailable",
+    "utilizationTrend": "Utilization Trend",
+    "jitter": "Jitter",
+    "jitterUnavailable": "Jitter unavailable",
+    "jitterTrend": "Jitter Trend",
+    "pages": {
+      "overview": "Overview",
+      "metrics": "Metrics & AI Analysis"
+    }
+  },
+  "circuitRules": {
+    "summary": "Active — increase above {{increasePct}}% to {{nextMbps}} Mbps, decrease at/below {{decreasePct}}% to {{baseMbps}} Mbps"
+  },
+  "sreClosedLoop": {
+    "simulateAria": "Simulate a monitoring event",
+    "simulation": "Simulation",
+    "submitting": "Submitting…",
+    "highUtilization": "High Utilization",
+    "lowUtilization": "Low Utilization",
+    "recentEvents": "Recent Events",
+    "auditLog": "Audit Log",
+    "trigger": "Trigger",
+    "ruleDetailTitle": "Reliability Rule Overview - {{circuitName}}",
+    "pages": {
+      "overview": "Rule Overview",
+      "eventsAndAuditLog": "Recent Events and Audit Logs"
+    }
+  },
+  "serviceConfig": {
+    "description": "Description",
+    "vlanConfiguration": "VLAN Configuration",
+    "vlanId": "VLAN ID",
+    "vlanType": "VLAN Type",
+    "vlanMapping": "VLAN Mapping",
+    "configuration": "Configuration",
+    "serviceId": "Service ID",
+    "baseRatePerHour": "Base Rate Per Hour",
+    "boostRate": "Boost Rate",
+    "totalRatePerHour": "Total Rate Per Hour",
+    "totalEstimatedPerMonth": "Total Estimated Per Month",
+    "commitmentPeriodMonths": "Commitment Period (Months)",
+    "commitmentExpiry": "Commitment Expiry",
+    "performance": "Performance (AVG)",
+    "notSet": "Not set",
+    "aiConfigReview": "AI Config Review",
+    "pages": {
+      "overview": "Overview",
+      "configuration": "Configuration",
+      "insights": "AI Review & Performance"
+    }
+  },
+  "serviceOrder": {
+    "ethernetConnection": "Ethernet Connection",
+    "ethernetPort": "Ethernet Port",
+    "pages": {
+      "orderSummary": "Order Summary",
+      "aiRecommendation": "AI Recommendation"
+    },
+    "fields": {
+      "sourcePort": "Source Port",
+      "destinationPort": "Destination Port",
+      "sourceAddress": "Origin Address",
+      "destinationAddress": "Destination Address",
+      "bandwidth": "Bandwidth",
+      "commitmentPeriod": "Commitment Period",
+      "price": "Price",
+      "vlan": "VLAN",
+      "location": "Location",
+      "ipAssignment": "IP Assignment"
+    },
+    "vlanLine": "{{vlanType}} — VLAN {{vlanId}}",
+    "portMap": {
+      "source": "Source",
+      "destination": "Destination"
+    },
+    "invoiceTitle": "Order Summary"
+  },
+  "admin": {
+    "backLink": "NaaS Assistant",
+    "title": "Service Order Tickets",
+    "pendingTab": "Pending ({{count}})",
+    "historyTab": "History ({{count}})",
+    "table": {
+      "ticket": "Ticket",
+      "type": "Type",
+      "address": "Address",
+      "building": "Building",
+      "bandwidth": "Bandwidth",
+      "commitment": "Commitment",
+      "rentalCharge": "Rental Charge",
+      "created": "Created",
+      "approved": "Approved"
+    },
+    "noPendingTickets": "No pending tickets.",
+    "noHistoryTickets": "No history tickets.",
+    "approve": "Approve",
+    "approving": "Approving…",
+    "productTypes": {
+      "ethernetPort": "Ethernet Port",
+      "offnetPort": "Offnet Port",
+      "offnetModification": "Offnet Port Modification",
+      "ethernetConnection": "Ethernet Connection"
+    }
+  },
+  "agentScreen": {
+    "controlPanel": "Control panel",
+    "unknownAgent": "Unknown agent: {{agentId}}"
+  },
+  "infoCanvas": {
+    "title": "Info Canvas",
+    "subtitle": "Visual information on agent response will be dynamically updated."
+  },
+  "greetings": {
+    "serviceOrder": "Hi, I'm your Service Order Agent. Let me know how I can help you today!"
+  }
+}
