@@ -6,7 +6,10 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'coverage']),
+  // CI installs gcloud and Node into the project directory (.tools/), and keeps
+  // its caches and scratch files in .cache/ and .ci-work/. The gcloud SDK ships
+  // a binary terminfo file named xterm.js, which fails to parse.
+  globalIgnores(['dist', 'coverage', '.tools', '.cache', '.ci-work', '.tmp']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [
