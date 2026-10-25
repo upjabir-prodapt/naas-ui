@@ -16,7 +16,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@aicoe/aihub-platform": "0.1.0",
+    "@aicoe/aihub-platform": "0.1.1",
     "i18next": "^26.4.1",
     "lucide-react": "^1.8.0",
     "maplibre-gl": "^6.8.0",

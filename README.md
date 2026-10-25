@@ -207,7 +207,7 @@ The token lasts an hour; rerun the second command when `npm` starts returning 40
 
 ### Lockfile bootstrap
 
-`package.json` pins `"@aicoe/aihub-platform": "0.1.0"`. Until version `0.1.0`
+`package.json` pins `"@aicoe/aihub-platform": "0.1.1"`. Until version `0.1.1`
 is published there is nothing to resolve it against, so this repo starts
 **without** `package-lock.json`, and CI refuses to run until it has one: every
 CI install is `npm ci`, and the `.require_lockfile` guard fails the job with a
